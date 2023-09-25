@@ -1,0 +1,258 @@
+---
+title: "Back pain: four outcomes"
+author: "Ty and Kaja"
+format: 
+  pdf:
+    toc: true
+    highlight-style: atom-one
+    number-sections: true
+editor: source
+---
+
+
+<!-- highlight-style supported themes: arrow, pygments, tango, espresso, zenburn, kate, monochrome, breezedark, haddock, atom-one, ayu, breeze, dracula, github, gruvbox, monokai, nord, oblivion, printing, radical, solarized, and vim. -->
+
+
+```{R}
+#| include: false
+knitr::read_chunk('back-pain.R')
+```
+
+\newpage
+
+# Approach 
+
+For each outcome, the simplest model that has appropriate fit will be sought. Models have been classified in rough ordering from "simplest" below using A, B, C, or D with A representing the common/easily understood models
+
+<!-- thanks to https://www.tablesgenerator.com/markdown_tables -->
+
+| **Outcome variable**/*Model* | *Multiple linear regression* (A) | *Ordinal logistic regression* (B${}^{*}$) | *Logistic regression* (B) | *Poisson/negative binomial regression* (C) | *Beta regression* (D) | 
+|---|---|---|---|---|---|
+| **Binary** | - | - | + | - | - | 
+|   |   |   |   |   |   |
+| **Ordinal** | - | + | + (if outcome made binary) | - | - | 
+|   |   |   |   |   |   |
+| **Values from 0 to 100** | + (outcome potentially transformed) | - (if outcome made ordinal but bad option) | + (if outcome made binary) | + | + |  
+
+
+${}^{*}$Probably "C" not "B" but is basically multiple logistic regressions performed with different dichotomisations of the order levels in the outcome 
+
+
+\newpage
+
+# Set up
+
+## Packages
+
+
+```{R, libs}
+
+```
+
+## Constants
+
+
+```{R, consts}
+
+```
+
+
+\newpage
+
+
+# Data wrangling
+
+## Read data
+
+
+```{R, read}
+
+```
+
+## Tidy data
+
+
+```{R, tidy}
+
+```
+
+
+## Impute missing values in compositions
+
+This code is thanks to Kaja! 
+
+Missing data is assumed to be below detectable threshold and imputed.
+
+```{R, impute}
+
+```
+
+
+## Compositions transformation to *ilr*s
+
+The below function will allow us to automatically add ilrs to a dataset
+
+```{R, ilr_create}
+
+```
+
+
+\newpage
+
+
+# Exploratory analysis
+
+## Missing/`NA` value summaries
+
+
+
+```{R, explore1}
+#| warning: false
+#| fig-height: 4
+#| fig-width: 8
+
+
+```
+
+
+## Pairwise plots between *ilr*s and outcome variables
+
+
+```{R, explore2}
+#| warning: false
+#| fig-height: 15
+#| fig-width: 15
+
+
+```
+
+
+\newpage
+
+
+# Statistical analysis
+
+## Outcome 0: binary outcome of `Pain = "yes"`
+
+### Model fit
+
+```{R, outcome0}
+```
+
+
+### Model diagnostics
+
+```{R, outcome0_diag}
+
+```
+
+### Model predictions
+
+```{R, outcome0_pred}
+#| fig-height: 8
+#| fig-width: 8
+```
+
+
+\newpage
+
+## Note for outcomes 1 to 2
+
+The dataset for the remain outcomes will be limited to people who responded:
+
+
+
+```{R, update_data}
+```
+
+\newpage
+
+
+## Outcome 1: `LBP_frequency_year`
+
+### Model fit
+
+```{R, outcome1}
+```
+
+Ordinal logistic regression has fit the model:
+
+<!-- logit (\hat{P}(Y \le \texttt{0days})) & =   \hat{\beta}_{0,\texttt{0days|1-7days}} –  \hat{\beta}_1 (age == \texttt{2\_middle}) – \ldots –  \hat{\beta}_p {\times} \texttt{ilr(..+-)} \\ -->
+
+$$
+\begin{aligned}
+logit (\hat{P}(Y \le \texttt{1-7days})) & =   \hat{\beta}_{0,\texttt{1-7days|8-30days}} –  \hat{\beta}_1 {\times}(age ) – \ldots –  \hat{\beta}_p {\times} \texttt{ilr(..+-)} \\
+logit (\hat{P}(Y \le \texttt{8-30days})) & =   \hat{\beta}_{0,\texttt{8-30days|31-90days }} –  \hat{\beta}_1 {\times}(age ) – \ldots –  \hat{\beta}_p {\times} \texttt{ilr(..+-)} \\
+logit (\hat{P}(Y \le \texttt{31-90days})) & =   \hat{\beta}_{0,\texttt{31-90days|91+\_not\_evday}} –  \hat{\beta}_1 {\times}(age) – \ldots –  \hat{\beta}_p {\times} \texttt{ilr(..+-)} \\
+logit (\hat{P}(Y \le \texttt{91+\_not\_evday})) & =   \hat{\beta}_{0,\texttt{91+\_not\_evday|everyday}} –  \hat{\beta}_1 (age == \texttt{2\_middle}) – \ldots –  \hat{\beta}_p {\times} \texttt{ilr(..+-)} \\
+\end{aligned}
+$$
+
+
+
+### Model diagnostics
+
+```{R, outcome1_diag}
+```
+
+### Model predictions
+
+```{R, outcome1_pred_a}
+#| fig-height: 10
+#| fig-width: 10
+```
+
+
+```{R, outcome1_pred_b}
+#| fig-height: 10
+#| fig-width: 10
+```
+
+
+\newpage
+
+## Outcome 2: `LBP_intensity_year`
+
+### Model fit
+
+```{R, outcome2}
+#| fig-height: 6
+#| fig-width: 6
+```
+
+### Model diagnostics
+
+```{R, outcome2_diag}
+#| fig-height: 12
+#| fig-width: 8
+```
+
+### Model predictions
+
+```{R, outcome2_pred_a}
+#| fig-height: 8
+#| fig-width: 8
+```
+
+
+```{R, outcome2_pred_b}
+#| fig-height: 8
+#| fig-width: 8
+```
+
+
+
+\newpage
+
+# Session information
+
+
+```{R}
+format(Sys.time(), '%d %b %Y')
+sessionInfo()
+```
+
+
+
+
+
