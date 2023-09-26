@@ -1853,7 +1853,6 @@ quantile(boot(bpd_yes, fit_mod_boot, R = 10, pred_dat = pred_df)$t, c(alpha / 2,
 
 
 
-
 realloc_plot_data <- readRDS(file = "res/negbin_realloc_boot_res(rat).rda")
 
 
