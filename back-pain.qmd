@@ -235,7 +235,21 @@ $$
 ```
 
 
-```{R, outcome2_pred_b}
+\newpage
+
+#### Absolute scale
+
+```{R, outcome2_pred_b_abs}
+#| fig-height: 8
+#| fig-width: 8
+```
+
+
+\newpage
+
+#### Ratio scale
+
+```{R, outcome2_pred_b_rat}
 #| fig-height: 8
 #| fig-width: 8
 ```

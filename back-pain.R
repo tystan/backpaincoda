@@ -233,18 +233,6 @@ table(bpd$bmi)
 
 # Do I have zero values in my composition? (yes in MVPA)
 ### See: summary(bpd)
-# bpd %>%
-#   summarise(
-#     Time_MVPA.min = min(Time_MVPA), 
-#     Time_MVPA.max = max(Time_MVPA), 
-#     Time_LPA.min = min(Time_LPA), 
-#     Time_LPA.max = max(Time_LPA), 
-#     Time_Sedentary.min = min(Time_Sedentary), 
-#     Time_SB.max = max(Time_Sedentary), 
-#     Time_Sleep.min = min(Time_Sleep), 
-#     Time_Sleep.max = max(Time_Sleep),
-#     n = n()
-#   )
 
 # We need to make compositions before we do the lrEM method. The most straightforward way is to create separate datasets and adjust them accordingly.
 comp1 <- bpd[, pred_comps]
@@ -665,10 +653,15 @@ do_multi_realloc <- function(mod, basis_data, timeusenames, time_changes, sbp_ma
   
 }
 
-set.seed(1234)
+
+
 
 # takes ~25 min (single core)
-tic()
+
+### Uncomment to generate bootstrapping
+
+# tic()
+# set.seed(1234)
 # realloc_plot_data <-
 #   do_multi_realloc(
 #     bpd_occurr_ilrs,
@@ -676,9 +669,9 @@ tic()
 #     pred_comps,
 #     seq(-30, 30, by = 10)
 #   )
-toc()
-
 # saveRDS(realloc_plot_data, file = "res/logistic_realloc_boot_res.rda")
+# toc()
+
 
 realloc_plot_data <- readRDS(file = "res/logistic_realloc_boot_res.rda")
 
@@ -687,7 +680,7 @@ levels(realloc_plot_data$to) <- paste0(levels(realloc_plot_data$to), "+Delta")
 levels(realloc_plot_data$from) <- paste0(levels(realloc_plot_data$from), "-Delta")
 
 ggplot(realloc_plot_data) +
-  geom_vline(xintercept = 1, col = "grey60") +
+  geom_vline(xintercept = 0, col = "grey60") +
   geom_hline(yintercept = 1, col = "grey60") +
   geom_ribbon(aes(x = change_time, ymin = ci_lo, ymax = ci_hi, fill = to), alpha = 0.3) +
   geom_line(aes(x = change_time , y = ratio_of_odds_ratios, col = to)) +
@@ -1148,11 +1141,16 @@ do_multi_realloc <- function(mod, basis_data, timeusenames, time_changes, sbp_ma
   
 }
 
-set.seed(1234)
 
 # takes ~ 3h (single core) for bootstrapping
 # takes ~ 4sec (single core) for delta/wald method
-tic()
+
+
+
+### Uncomment to generate bootstrapping
+
+# tic()
+# set.seed(1234)
 
   # # library("doParallel")
   # # no_cores <- detectCores() - 1 # Calculate the number of cores (leave one free)
@@ -1170,12 +1168,13 @@ tic()
   # # # close para comp
   # # stopCluster(cl) 
 
-toc()
+# saveRDS(realloc_plot_data, file = "res/ordinal_realloc_wald_res.rda")
+# toc()
 
 # saveRDS(realloc_plot_data, file = "res/ordinal_realloc_boot_res.rda")
 # realloc_plot_data <- readRDS(file = "res/ordinal_realloc_boot_res.rda")
 
-# saveRDS(realloc_plot_data, file = "res/ordinal_realloc_wald_res.rda")
+
 realloc_plot_data <- readRDS(file = "res/ordinal_realloc_wald_res.rda")
 
 
@@ -1183,7 +1182,7 @@ levels(realloc_plot_data$to) <- paste0(levels(realloc_plot_data$to), "+Delta")
 levels(realloc_plot_data$from) <- paste0(levels(realloc_plot_data$from), "-Delta")
 
 ggplot(realloc_plot_data) +
-  geom_vline(xintercept = 1, col = "grey60") +
+  geom_vline(xintercept = 0, col = "grey60") +
   geom_hline(yintercept = 1, col = "grey60") +
   geom_ribbon(aes(x = change_time, ymin = ci_lo, ymax = ci_hi, fill = to), alpha = 0.3) +
   geom_line(aes(x = change_time , y = ratio_of_odds_ratios, col = to)) +
@@ -1524,7 +1523,7 @@ predictions_intens %>%
 
 
 
-# ---- outcome2_pred_b ----
+# ---- outcome2_pred_b_abs ----
 
 
 
@@ -1683,9 +1682,12 @@ do_multi_realloc <- function(mod, basis_data, timeusenames, time_changes, sbp_ma
 
 set.seed(1234)
 
+
 # takes ~60 min (single core) for bootstrapped CIs (R = 1000)
 # takes ~ 6 min (single core) for bootstrapped CIs (R = 100)
-tic()
+
+### Uncomment to generate bootstrapping
+# tic()
 # realloc_plot_data <-
 #   do_multi_realloc(
 #     lbp_intensity_nb,
@@ -1693,13 +1695,128 @@ tic()
 #     pred_comps,
 #     seq(-30, 30, by = 10)
 #   )
-toc()
-
 # saveRDS(realloc_plot_data, file = "res/negbin_realloc_boot_res(abs).rda")
+# toc()
 
 
 
-set.seed(1234)
+realloc_plot_data <- readRDS(file = "res/negbin_realloc_boot_res(abs).rda")
+
+
+levels(realloc_plot_data$to) <- paste0(levels(realloc_plot_data$to), "+Delta")
+levels(realloc_plot_data$from) <- paste0(levels(realloc_plot_data$from), "-Delta")
+
+ggplot(realloc_plot_data) +
+  geom_vline(xintercept = 0, col = "grey60") +
+  geom_hline(yintercept = 0, col = "grey60") +
+  geom_ribbon(aes(x = change_time, ymin = ci_lo, ymax = ci_hi, fill = to), alpha = 0.3) +
+  geom_line(aes(x = change_time , y = outc_ratio, col = to)) +
+  geom_point(aes(x = change_time , y = outc_ratio, col = to), size = 1) +
+  facet_grid(from ~ to, labeller = label_parsed) +
+  theme_bw() +
+  scale_colour_manual(values = c("darkorange","purple","cyan4", "dodgerblue")) +
+  scale_fill_manual(values = c("darkorange","purple","cyan4", "dodgerblue")) +
+  labs(
+    x = paste0("Change/delta in composition (mins)"),
+    y = paste0(
+      "Absolute difference in mean LBP intensity (on % outcome scale, ",
+      "after reallocation - before reallocation)")
+  ) +
+  theme(legend.position = "none")
+
+ggsave(
+  filename = "fig/lbp_intens_negbin_abs_v1.png",
+  dpi = 600, # print quality
+  width = 10,
+  height = 10
+)
+
+
+
+pd2 <-
+  realloc_plot_data %>%
+  mutate(
+    to = gsub("Time_", "", to),
+    from = gsub("Time_", "", from),
+    to = gsub("+Delta", "", to, fixed = TRUE),
+    from = gsub("-Delta", "", from, fixed = TRUE),
+    to_len = nchar(to),
+    to_max = max(to_len),
+    from_len = nchar(from),
+    from_max = max(from_len),
+    to_pad =  rep_char(pmax(0, from_max - to_len)),
+    from_pad = rep_char(pmax(0, to_max - from_len)),
+    to = factor(to, levels = time_lvls),
+    from = factor(from, levels = time_lvls),
+    to_num = as.numeric(to),
+    from_num = as.numeric(from)
+  ) %>%
+  dplyr::filter(to_num > from_num) %>%
+  mutate(
+    # from_to = paste0("     ", "+", from, rep_char(10), from_pad, "\u2194", to_pad, rep_char(10), "+", to, "     ")
+    from_to = paste0("+", from, rep_char(13), from_pad, "", to_pad, rep_char(13), "+", to)
+  ) %>%
+  arrange(from, to)
+
+unique(pd2$from_to)
+pd2$from_to <- factor(pd2$from_to, levels = unique(pd2$from_to))
+
+this_breaks <- seq(-30, 30, 10)
+this_labs <- sprintf("+%2.0f", abs(seq(-30, 30, 10)))
+this_labs[this_labs == "+ 0"] <- ""
+this_labs
+
+ggplot(pd2) +
+  geom_vline(xintercept = 0, col = "grey60") +
+  geom_hline(yintercept = 0, col = "grey60") +
+  geom_ribbon(aes(x = change_time, ymin = ci_lo, ymax = ci_hi, fill = to), alpha = 0.3, col = NA, fill = "cyan4") +
+  geom_line(aes(x = change_time , y = outc_ratio, col = to), col = "cyan4") +
+  geom_point(aes(x = change_time , y = outc_ratio, col = to), size = 1, col = "cyan4") +
+  facet_wrap(~ from_to, labeller = label_bquote(.(from_to))) +
+  theme_bw() +
+  scale_x_continuous(breaks = this_breaks, labels = this_labs) +
+  labs(
+    x = paste0("Reallocation between pair of compositional parts (minutes)"),
+    y = paste0(
+      "Absolute difference in mean LBP intensity (on % outcome scale, ",
+      "after reallocation - before reallocation)"
+    )
+    # subtitle = "Note that odds ratios relate to the probability of having _increased_ frequency (per year) of pain"
+  ) +
+  theme(
+    legend.position = "none",
+    text = element_text(family = "serif"),
+    strip.text = element_text(size = 10, face = "bold"),
+    axis.text =  element_text(size = 10),
+    axis.title =  element_text(size = 12)
+  )
+
+
+ggsave(filename = "fig/lbp_intens_negbin_abs_v2.png", width = 14, height = 9, dpi = 600)
+
+
+
+
+
+# ---- outcome2_pred_b_rat ----
+
+
+
+# wrapper:
+get_pred_diff <- function(mod, new_dat, type = "rat") {
+  if (type == "abs") {
+    return(get_pred_diff_abs(mod = mod, new_dat = new_dat))
+  } else if (type == "rat") {
+    return(get_pred_diff_rat(mod = mod, new_dat = new_dat))
+  } else {
+    stop("'type' must be 'abs' (absolute differnce) or 'rat' (ratio)")
+  }
+}
+get_pred_diff(lbp_intensity_nb, pred_df, type = "abs")
+get_pred_diff(lbp_intensity_nb, pred_df, type = "rat")
+get_pred_diff(lbp_intensity_nb, pred_df)
+
+
 
 fit_mod_boot <- function(data, i, pred_dat, type = "rat") {
   
@@ -1712,11 +1829,17 @@ fit_mod_boot <- function(data, i, pred_dat, type = "rat") {
 alpha <- 0.05
 quantile(boot(bpd_yes, fit_mod_boot, R = 10, pred_dat = pred_df)$t, c(alpha / 2, 1 - alpha / 2))
 
-set.seed(1234)
+
+
+
 
 # takes ~60 min (single core) for bootstrapped CIs (R = 1000)
 # takes ~ 6 min (single core) for bootstrapped CIs (R = 100)
-tic()
+
+
+### Uncomment to generate bootstrapping
+# set.seed(1234)
+# tic()
 # realloc_plot_data <-
 #   do_multi_realloc(
 #     lbp_intensity_nb,
@@ -1724,18 +1847,14 @@ tic()
 #     pred_comps,
 #     seq(-30, 30, by = 10)
 #   )
-toc()
-
 # saveRDS(realloc_plot_data, file = "res/negbin_realloc_boot_res(rat).rda")
+# toc()
 
 
 
 
 
-
-
-
-realloc_plot_data <- readRDS(file = "res/negbin_realloc_boot_res(abs).rda")
+realloc_plot_data <- readRDS(file = "res/negbin_realloc_boot_res(rat).rda")
 
 
 levels(realloc_plot_data$to) <- paste0(levels(realloc_plot_data$to), "+Delta")
@@ -1753,13 +1872,12 @@ ggplot(realloc_plot_data) +
   scale_fill_manual(values = c("darkorange","purple","cyan4", "dodgerblue")) +
   labs(
     x = paste0("Change/delta in composition (mins)"),
-#    y = paste0("Ratio of back pain intensity (after reallocation:before reallocation)")
-    y = paste0("Absolute difference in mean LBP intensity (on % outcome scale, after reallocation - before reallocation)")
+    y = paste0("Ratio of back pain intensity (after reallocation:before reallocation)")
   ) +
   theme(legend.position = "none")
 
 ggsave(
-  filename = "fig/lbp_intens_negbin_abs_v1.png",
+  filename = "fig/lbp_intens_negbin_rat_v1.png",
   dpi = 600, # print quality
   width = 10,
   height = 10
@@ -1811,8 +1929,7 @@ ggplot(pd2) +
   scale_x_continuous(breaks = this_breaks, labels = this_labs) +
   labs(
     x = paste0("Reallocation between pair of compositional parts (minutes)"),
-#    y = paste0("Ratio of mean LBP intensity (after reallocation:before reallocation)")
-    y = paste0("Absolute difference in mean LBP intensity (on % outcome scale, after reallocation - before reallocation)")
+    y = paste0("Ratio of mean LBP intensity (after reallocation:before reallocation)")
     # subtitle = "Note that odds ratios relate to the probability of having _increased_ frequency (per year) of pain"
   ) +
   theme(
@@ -1824,10 +1941,7 @@ ggplot(pd2) +
   )
 
 
-ggsave(filename = "fig/lbp_intens_negbin_abs_v2.png", width = 14, height = 9, dpi = 600)
-# ggsave(filename = "fig/lbp_intens_negbin_ratio.pdf", width = 10, height = 8)
-
-
+ggsave(filename = "fig/lbp_intens_negbin_rat_v2.png", width = 14, height = 9, dpi = 600)
 
 
 
