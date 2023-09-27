@@ -91,6 +91,8 @@ suppressPackageStartupMessages(suppressWarnings({
 
 # ---- consts ----
 
+is_sensitivity_analysis <- FALSE
+
 pred_comps <- c("Time_Sleep", "Time_Sedentary", "Time_LPA", "Time_MVPA")
 (D <- length(pred_comps))
 pred_covs <- c("age", "sex", "bmi", "stress", "smoking", "education", "ses")
@@ -207,23 +209,24 @@ with(bpd, table(LBP_frequency_year, LBP_sufferer, useNA = "ifany"))
 
 
 ### comment these lines for sensitivity analysis
-bpd$age <- 
-  cut(
-    bpd$age, 
-    breaks = c(17, 44, 64, 100), 
-    labels = c("1_younger", "2_middle", "3_older")
-  )
-table(bpd$age)
-
-bpd$bmi <- 
-  cut(
-    bpd$bmi, 
-    breaks = c(15, 18.5, 25, 70), 
-    right = FALSE,
-    labels = c("1_underweight", "2_normal", "3_overweight")
-  )
-table(bpd$bmi)
-
+if (!is_sensitivity_analysis) {
+  bpd$age <- 
+    cut(
+      bpd$age, 
+      breaks = c(17, 44, 64, 100), 
+      labels = c("1_younger", "2_middle", "3_older")
+    )
+  print(table(bpd$age))
+  
+  bpd$bmi <- 
+    cut(
+      bpd$bmi, 
+      breaks = c(15, 18.5, 25, 70), 
+      right = FALSE,
+      labels = c("1_underweight", "2_normal", "3_overweight")
+    )
+  print(table(bpd$bmi))
+}
 
 
 
@@ -454,7 +457,8 @@ predictions_probs <-
 
 
 ## model predictions for specific values
-predictions_probs %>%
+pred_plt <- 
+  predictions_probs %>%
   dplyr::filter(
     # sex == "1_female", 
     stress == "1_normal", 
@@ -468,10 +472,16 @@ predictions_probs %>%
   facet_grid(sex~ ses, labeller = label_both) +
   labs(x = "age", y = "estimated P(lower back pain sufferer)") +
   theme_bw() +
-  scale_color_manual(values = c("orange2", "turquoise", "purple")) +
   theme(axis.text.x = element_text(angle = 45))
 
 
+if (is_sensitivity_analysis) {
+  pred_plt <- pred_plt + scale_colour_viridis_b(option = "H")
+} else {
+  pred_plt <- pred_plt + scale_color_manual(values = c("orange2", "turquoise", "purple"))
+}
+
+pred_plt
 
 
 # create a RHS of regression equation dataset for time-reallocation
@@ -479,7 +489,7 @@ predict_basis <-
   bpd %>%
   dplyr::select(all_of(pred_covs), all_of(pred_comps)) %>%
   dplyr::filter(
-    age == "2_middle",
+    # age == "2_middle",
     sex == "1_female", 
     stress == "1_normal", 
     smoking == "2_nonsmoker", 
@@ -488,9 +498,15 @@ predict_basis <-
     bmi == "2_normal"
   ) 
   
-### continuous scenario  
-# predict_basis$age <- mean(predict_basis$age)
-  
+if (is_sensitivity_analysis) {
+  # continuous scenario  
+  predict_basis$age <- mean(predict_basis$age)
+} else { # std analysis
+  predict_basis <-
+    predict_basis %>% dplyr::filter(age == "2_middle")
+}
+
+
 (predict_basis <-
   predict_basis %>%
   distinct(across(all_of(pred_covs)), .keep_all = TRUE) %>%
@@ -838,7 +854,8 @@ predictions_probs
 
 
 ## model predictions for specific values
-predictions_probs %>%
+pred_plt <-
+  predictions_probs %>%
   dplyr::filter(
     # sex == "1_female", 
     stress == "1_normal", 
@@ -846,16 +863,29 @@ predictions_probs %>%
     education == "2_higher", 
     # ses == "2_middle"
   ) %>%
-  ggplot(., aes(outcome, `P(outc)`)) +
-  geom_line(aes(colour =  age, group =  age), linewidth = 1) +
-  geom_point(aes(colour =  age), size = 2) +
-  facet_grid(sex * bmi ~ ses, labeller = label_both) +
-  labs(x = "Outcome: back pain freq", y = "estimated P(outcome)") +
-  theme_bw() +
-  scale_colour_viridis_d()
-  
-  
+  ggplot(., aes(outcome, `P(outc)`)) 
 
+
+
+if (is_sensitivity_analysis) {
+  pred_plt <- 
+    pred_plt + 
+    geom_line(aes(colour =  age, group =  age), linewidth = 1) +
+    geom_point(aes(colour =  age), size = 2) +
+    facet_grid(sex ~ ses, labeller = label_both) +
+    labs(x = "Outcome: back pain freq", y = "estimated P(outcome)") +
+    scale_colour_viridis_b()
+} else {
+  pred_plt <- 
+    pred_plt +
+    geom_line(aes(colour =  age, group =  age), linewidth = 1) +
+    geom_point(aes(colour =  age), size = 2) +
+    facet_grid(sex * bmi ~ ses, labeller = label_both) +
+    labs(x = "Outcome: back pain freq", y = "estimated P(outcome)") +
+    scale_colour_viridis_d()
+}
+  
+pred_plt + theme_bw() 
 
 
 
@@ -867,7 +897,7 @@ predict_basis <-
    bpd_yes %>%
    dplyr::select(all_of(pred_covs), all_of(pred_comps)) %>%
    dplyr::filter(
-     age == "2_middle",
+     # age == "2_middle",
      sex == "1_female", 
      stress == "1_normal", 
      smoking == "2_nonsmoker", 
@@ -876,8 +906,13 @@ predict_basis <-
      bmi == "2_normal"
    ) 
  
-### continuous situation
-# predict_basis$age <- mean(predict_basis$age)
+if (is_sensitivity_analysis) {
+  # continuous scenario  
+  predict_basis$age <- mean(predict_basis$age)
+} else { # std analysis
+  predict_basis <-
+    predict_basis %>% dplyr::filter(age == "2_middle")
+}
  
 (predict_basis <-
   predict_basis %>%
@@ -1532,18 +1567,28 @@ predictions_intens %>%
     bpd_yes %>%
     dplyr::select(all_of(pred_covs), all_of(pred_comps)) %>%
     dplyr::filter(
-      age == "2_middle",
+      # age == "2_middle",
       sex == "1_female", 
       stress == "1_normal", 
       smoking == "2_nonsmoker", 
       education == "2_higher", 
       ses == "2_middle",
       bmi == "2_normal"
-    ) %>%
+    ))
+
+if (is_sensitivity_analysis) {
+  # continuous scenario  
+  predict_basis$age <- mean(predict_basis$age)
+} else { # std analysis
+  predict_basis <-
+    predict_basis %>% dplyr::filter(age == "2_middle")
+}
+
+
+(predict_basis <-
+    predict_basis %>%
     distinct(across(all_of(pred_covs)), .keep_all = TRUE) %>%
     as.data.frame())
-
-
 
 
 
