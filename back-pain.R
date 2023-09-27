@@ -1945,9 +1945,342 @@ ggsave(filename = "fig/lbp_intens_negbin_rat_v2.png", width = 14, height = 9, dp
 
 
 
+# ---- pval_calcs ----
+
+
+alpha <- 0.05
+
+### (1)
+# reallocating 30 min/day from SB to sleep was associated with 5% lower
+# odds (95% CI: 2%, 9%, p = 0.001062743) of experiencing LBP more frequently
+
+ordinal_freq_dat <- readRDS(file = "res/ordinal_realloc_wald_res.rda")
+
+this_realloc <-
+  ordinal_freq_dat %>%
+  dplyr::filter(to == "Time_Sleep", from == "Time_Sedentary", change_time == 30) 
+
+this_realloc %>%
+  kable(., digits = 5)
+
+# the sampling dist of the mean is assumed normal on the log scale
+(this_m <- log(this_realloc[["ratio_of_odds_ratios"]]))
+(this_se <- (this_m - log(this_realloc[["ci_lo"]])) / qnorm(1 - 0.05 / 2))
+(this_pval <- 2 * (1 - pnorm(abs(this_m), sd = this_se)))
+
+
+### (2)
+# reallocating 30 min/day from SB to sleep
+# ...
+# and 0.6% lower LBP intensity (95% CI: 0.3%, 0.9%; p = 0.0002580507).
+
+negbin_intens_dat <- readRDS(file = "res/negbin_realloc_boot_res(abs).rda")
+
+this_realloc <-
+  negbin_intens_dat %>%
+  dplyr::filter(to == "Time_Sleep", from == "Time_Sedentary", change_time == 30) 
+
+# create a RHS of regression equation dataset for time-reallocation
+(predict_basis <-
+    bpd_yes %>%
+    dplyr::select(all_of(pred_covs), all_of(pred_comps)) %>%
+    dplyr::filter(
+      age == "2_middle",
+      sex == "1_female", 
+      stress == "1_normal", 
+      smoking == "2_nonsmoker", 
+      education == "2_higher", 
+      ses == "2_middle",
+      bmi == "2_normal"
+    ) %>%
+    distinct(across(all_of(pred_covs)), .keep_all = TRUE) %>%
+    as.data.frame())
+
+
+
+# compositional mean: geometric mean to closure
+# (comp_mean <- mean(acomp(bpd_yes[, pred_comps])))
+(comp_mean <- calc_comp_mean(bpd_yes[, pred_comps], clo_val = 1440))
+predict_basis0 <- predict_basis
+predict_basis0[, pred_comps] <- comp_mean
+
+predict_basis0
+
+# +30 minutes to Time_Sleep and -30 minutes from Time_Sedentary 
+comp_mean_changed <- comp_mean
+comp_mean_changed["Time_Sleep"] <- comp_mean_changed["Time_Sleep"] + 30
+comp_mean_changed["Time_Sedentary"] <- comp_mean_changed["Time_Sedentary"] - 30
+# check
+comp_mean_changed - comp_mean
+
+predict_basis1 <- predict_basis
+predict_basis1[, pred_comps] <- comp_mean_changed
+
+pred_df <- rbind(predict_basis0, predict_basis1)
+pred_df <- add_ilrs_to_data(pred_df, comp_vars = pred_comps, sbp_matrix = sbp1)
+pred_df
+predict(lbp_intensity_nb, pred_df, type = "link")
+# exponentiate difference in the log back pain intensity (ratio of back pain preds)
+exp(diff(predict(lbp_intensity_nb, pred_df, type = "link")))
+# abs difference in the mean back pain intensity
+diff(predict(lbp_intensity_nb, pred_df, type = "response"))
+(p_0 <- predict(lbp_intensity_nb, pred_df, type = "response"))
+# % increase in pain intensity
+(p_0[2]  - p_0[1]) / p_0[1]
+
+
+# absolute difference version
+get_pred_diff_abs <- function(mod, new_dat) {
+  log_ratio_pred <- predict(mod, new_dat, type = "response")
+  ratio_outc <- log_ratio_pred[2] - log_ratio_pred[1]
+  return(ratio_outc)
+}
+get_pred_diff_abs(lbp_intensity_nb, pred_df)
+
+
+fit_mod_boot_abs <- function(data, i, pred_dat) {
+  
+  this_dat <- data[i, ]
+  this_nbr <- glm.nb(mod_form_ilrs, data = this_dat)
+  est <- get_pred_diff_abs(this_nbr, new_dat = pred_dat)
+  return(est)
+  
+}
+
+boot_res <- boot(bpd_yes, fit_mod_boot_abs, R = 1000, pred_dat = pred_df)
+hist(boot_res$t)
+quantile(boot_res$t, c(0, alpha / 2, 1 - alpha / 2, 1))
+mean(boot_res$t > 0) 
+2 * (1 - pnorm(abs(mean(boot_res$t)), sd = sd(boot_res$t)))
+
+# from: https://stats.stackexchange.com/a/277391
+# the 95% normal CI does not include the null difference value of 0.
+with(
+  boot_res, 
+  2 * pnorm(abs((2 * t0 - mean(t) - 0) / sqrt(var(t)[1, 1])), lower.tail = FALSE)
+)
+
+
+### (3)
+# For example, reallocating 30 min/day from SB to sleep was associated with 
+# a 5% lower odds (ratio of ORs = 0.95, 95% CI: 0.92, 0.98, p = 0.001062743) of 
+# experiencing LBP more frequently.
+
+ordinal_freq_dat <- readRDS(file = "res/ordinal_realloc_wald_res.rda")
+
+this_realloc <-
+  ordinal_freq_dat %>%
+  dplyr::filter(to == "Time_Sleep", from == "Time_Sedentary", change_time == 30) 
+
+this_realloc <-
+  this_realloc %>%
+  mutate(
+    ratio_of_odds_ratios = 1 / ratio_of_odds_ratios,
+    tmp = 1 / ci_lo,
+    ci_lo = 1 / ci_hi,
+    ci_hi = tmp
+  ) %>%
+  dplyr::select(-tmp)
+
+this_realloc %>%
+  kable(., digits = 5)
+
+# the sampling dist of the mean is assumed normal on the log scale
+(this_m <- log(this_realloc[["ratio_of_odds_ratios"]]))
+(this_se <- (this_m - log(this_realloc[["ci_lo"]])) / qnorm(1 - alpha / 2))
+(this_pval <- 2 * (1 - pnorm(abs(this_m), sd = this_se)))
 
 
 
 
+### (4)
+# For example, reallocating 30 min/day from sleep to SB was associated with on 
+# average 2% higher LBP intensity (ratio of 
+# LBP intensity = 1.02, 95% CI: 1.01, 1.03, p = 0.000575549). 
+
+negbin_intens_dat <- readRDS(file = "res/negbin_realloc_boot_res(rat).rda")
+
+this_realloc <-
+  negbin_intens_dat %>%
+  dplyr::filter( to == "Time_Sedentary", from == "Time_Sleep", change_time == 30) 
+
+# create a RHS of regression equation dataset for time-reallocation
+(predict_basis <-
+    bpd_yes %>%
+    dplyr::select(all_of(pred_covs), all_of(pred_comps)) %>%
+    dplyr::filter(
+      age == "2_middle",
+      sex == "1_female", 
+      stress == "1_normal", 
+      smoking == "2_nonsmoker", 
+      education == "2_higher", 
+      ses == "2_middle",
+      bmi == "2_normal"
+    ) %>%
+    distinct(across(all_of(pred_covs)), .keep_all = TRUE) %>%
+    as.data.frame())
+
+
+
+# compositional mean: geometric mean to closure
+# (comp_mean <- mean(acomp(bpd_yes[, pred_comps])))
+(comp_mean <- calc_comp_mean(bpd_yes[, pred_comps], clo_val = 1440))
+predict_basis0 <- predict_basis
+predict_basis0[, pred_comps] <- comp_mean
+
+predict_basis0
+
+# 30 minutes to Time_Sedentary and -30 minutes from Time_Sleep 
+comp_mean_changed <- comp_mean
+comp_mean_changed["Time_Sedentary"] <- comp_mean_changed["Time_Sedentary"] + 30
+comp_mean_changed["Time_Sleep"] <- comp_mean_changed["Time_Sleep"] - 30
+# check
+comp_mean_changed - comp_mean
+
+predict_basis1 <- predict_basis
+predict_basis1[, pred_comps] <- comp_mean_changed
+
+pred_df <- rbind(predict_basis0, predict_basis1)
+pred_df <- add_ilrs_to_data(pred_df, comp_vars = pred_comps, sbp_matrix = sbp1)
+pred_df
+predict(lbp_intensity_nb, pred_df, type = "link")
+# exponentiate difference in the log back pain intensity (ratio of back pain preds)
+exp(diff(predict(lbp_intensity_nb, pred_df, type = "link")))
+# abs difference in the mean back pain intensity
+diff(predict(lbp_intensity_nb, pred_df, type = "response"))
+(p_0 <- predict(lbp_intensity_nb, pred_df, type = "response"))
+# % increase in pain intensity
+(p_0[2]  - p_0[1]) / p_0[1]
+
+
+# ratio version
+get_pred_diff_rat <- function(mod, new_dat) {
+  log_ratio_pred <- predict(mod, new_dat, type = "link")
+  ratio_outc <- exp(log_ratio_pred[2] - log_ratio_pred[1])
+  return(ratio_outc)
+}
+get_pred_diff_rat(lbp_intensity_nb, pred_df)
+
+
+fit_mod_boot_rat <- function(data, i, pred_dat) {
+  
+  this_dat <- data[i, ]
+  this_nbr <- glm.nb(mod_form_ilrs, data = this_dat)
+  est <- get_pred_diff_rat(this_nbr, new_dat = pred_dat)
+  return(est)
+  
+}
+alpha <- 0.05
+boot_res <- boot(bpd_yes, fit_mod_boot_rat, R = 1000, pred_dat = pred_df)
+hist(log(boot_res$t))
+quantile(boot_res$t, c(0, alpha / 2, 1 - alpha / 2, 1))
+mean(log(boot_res$t) < 0) 
+2 * (1 - pnorm(abs(mean(log(boot_res$t))), sd = sd(log(boot_res$t))))
+
+# from: https://stats.stackexchange.com/a/277391
+# the 95% normal CI does not include the null ratio value of 1.
+with(
+  boot_res, 
+  2 * pnorm(abs((2 * t0 - mean(t) - 1) / sqrt(var(t)[1, 1])), lower.tail = FALSE)
+)
+
+
+### (5)
+# For example, reallocating 20 min/day from MVPA to sleep was associated with on 
+# average 6% lower LBP intensity (ratio of LBP 
+# intensity = 0.94, 95% CI: 0.90, 0.97, p = 0.0003015287 ).
+
+
+negbin_intens_dat <- readRDS(file = "res/negbin_realloc_boot_res(rat).rda")
+
+this_realloc <-
+  negbin_intens_dat %>%
+  dplyr::filter( to == "Time_Sleep", from == "Time_MVPA", change_time == 20) 
+
+this_realloc
+
+
+
+# create a RHS of regression equation dataset for time-reallocation
+(predict_basis <-
+    bpd_yes %>%
+    dplyr::select(all_of(pred_covs), all_of(pred_comps)) %>%
+    dplyr::filter(
+      age == "2_middle",
+      sex == "1_female", 
+      stress == "1_normal", 
+      smoking == "2_nonsmoker", 
+      education == "2_higher", 
+      ses == "2_middle",
+      bmi == "2_normal"
+    ) %>%
+    distinct(across(all_of(pred_covs)), .keep_all = TRUE) %>%
+    as.data.frame())
+
+
+
+# compositional mean: geometric mean to closure
+# (comp_mean <- mean(acomp(bpd_yes[, pred_comps])))
+(comp_mean <- calc_comp_mean(bpd_yes[, pred_comps], clo_val = 1440))
+predict_basis0 <- predict_basis
+predict_basis0[, pred_comps] <- comp_mean
+
+predict_basis0
+
+# 20 minutes to Time_Sleep and -20 minutes from Time_Sleep 
+comp_mean_changed <- comp_mean
+comp_mean_changed["Time_Sleep"] <- comp_mean_changed["Time_Sleep"] + 20
+comp_mean_changed["Time_MVPA"] <- comp_mean_changed["Time_MVPA"] - 20
+# check
+comp_mean_changed - comp_mean
+
+predict_basis1 <- predict_basis
+predict_basis1[, pred_comps] <- comp_mean_changed
+
+pred_df <- rbind(predict_basis0, predict_basis1)
+pred_df <- add_ilrs_to_data(pred_df, comp_vars = pred_comps, sbp_matrix = sbp1)
+pred_df
+predict(lbp_intensity_nb, pred_df, type = "link")
+# exponentiate difference in the log back pain intensity (ratio of back pain preds)
+exp(diff(predict(lbp_intensity_nb, pred_df, type = "link")))
+# abs difference in the mean back pain intensity
+diff(predict(lbp_intensity_nb, pred_df, type = "response"))
+(p_0 <- predict(lbp_intensity_nb, pred_df, type = "response"))
+# % increase in pain intensity
+(p_0[2]  - p_0[1]) / p_0[1]
+
+
+# ratio version
+get_pred_diff_rat <- function(mod, new_dat) {
+  log_ratio_pred <- predict(mod, new_dat, type = "link")
+  ratio_outc <- exp(log_ratio_pred[2] - log_ratio_pred[1])
+  return(ratio_outc)
+}
+get_pred_diff_rat(lbp_intensity_nb, pred_df)
+
+
+fit_mod_boot_rat <- function(data, i, pred_dat) {
+  
+  this_dat <- data[i, ]
+  this_nbr <- glm.nb(mod_form_ilrs, data = this_dat)
+  est <- get_pred_diff_rat(this_nbr, new_dat = pred_dat)
+  return(est)
+  
+}
+
+boot_res <- boot(bpd_yes, fit_mod_boot_rat, R = 1000, pred_dat = pred_df)
+mean(boot_res$t)
+hist(boot_res$t)
+hist(log(boot_res$t))
+quantile(boot_res$t, c(0, alpha / 2, 1 - alpha / 2, 1))
+mean(log(boot_res$t) < 0) 
+2 * (1 - pnorm(abs(mean(log(boot_res$t))), sd = sd(log(boot_res$t))))
+
+# from: https://stats.stackexchange.com/a/277391
+# the 95% normal CI does not include the null ratio value of 1.
+with(
+  boot_res, 
+  2 * pnorm(abs((2 * t0 - mean(t) - 1) / sqrt(var(t)[1, 1])), lower.tail = FALSE)
+)
 
 
